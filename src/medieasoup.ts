@@ -1,5 +1,9 @@
 import * as mediasoupClient from "mediasoup-client";
-import { RtpCapabilities, Transport } from "mediasoup-client/types";
+import {
+  ProducerOptions,
+  RtpCapabilities,
+  Transport,
+} from "mediasoup-client/types";
 import { Socket } from "socket.io-client";
 
 const initdevice = () => {
@@ -29,10 +33,27 @@ async function createSendTransport(
   console.log("r", routerTransportOptions);
   try {
     const transport = device.createSendTransport(routerTransportOptions);
+
+    transport.on("produce", async (parameters, callback, errback) => {
+      console.log("produce event");
+      const id = await socket.emitWithAck("transport-produce", parameters);
+      if (!id) {
+        // errback()
+        const error = new Error(
+          "something went wrong with producer transport creation"
+        );
+        console.error("transport produce error");
+        errback(error);
+      }
+      console.log("server produced", id);
+      callback({ id });
+    });
+
     transport.on("connect", async ({ dtlsParameters }, callback, errback) => {
       const ans = await socket.emitWithAck("transport-connect", dtlsParameters);
       switch (ans) {
         case "connected":
+          // console.log("transport connected");
           callback();
           break;
         default:
@@ -40,17 +61,6 @@ async function createSendTransport(
           break;
       }
       console.log(ans);
-    });
-
-    transport.on("produce", async (parameters, callback, errback) => {
-      const id = await socket.emitWithAck("tranport-produce", parameters);
-      if (!id) {
-        // errback()
-        throw new Error(
-          "something went wrong with producer transport creation"
-        );
-      }
-      callback({ id });
     });
 
     return transport;
@@ -70,5 +80,12 @@ async function createSendTransport(
   }
 }
 
+const produceMedia = async (transport: Transport, localstream: MediaStream) => {
+  const producerOptions: ProducerOptions = {};
+  producerOptions.track = localstream.getVideoTracks()[0];
+  console.log("producing");
+  return await transport.produce(producerOptions);
+};
+
 export default initdevice;
-export { onrouterRtpCapabilties, createSendTransport };
+export { onrouterRtpCapabilties, createSendTransport, produceMedia };
