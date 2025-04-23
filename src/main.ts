@@ -51,16 +51,20 @@ socket.on("newConsumer", async (consumeroptions: ConsumerOptions) => {
 
 callbtn?.addEventListener("click", async () => {
   modal?.classList.remove("show");
-  modal?.classList.add("hide");
-  localstream = await gum(device);
-  transport = await createSendTransport(socket, device);
-  createVIdeoElement(localstream, "local");
-  producer = await produceMedia(transport, localstream);
+  const created = await socket.emitWithAck("createRouter");
+  if (created === "created") {
+    modal?.classList.add("hide");
+    localstream = await gum(device);
+    transport = await createSendTransport(socket, device);
+    createVIdeoElement(localstream, "local");
+    producer = await produceMedia(transport, localstream);
+  }
 });
 
 jionbtn?.addEventListener("click", async () => {
   modal?.classList.remove("show");
   modal?.classList.add("hide");
+  await socket.emitWithAck("routerrtpcap");
   // calls?.classList.remove("hide");
   // calls?.classList.add("show");
   transport = await createRecieveTransport(socket, device);
