@@ -3,6 +3,7 @@ import {
   ProducerOptions,
   RtpCapabilities,
   Transport,
+  TransportOptions,
 } from "mediasoup-client/types";
 import { Socket } from "socket.io-client";
 
@@ -25,17 +26,25 @@ const onrouterRtpCapabilties = (
 
 async function createSendTransport(
   socket: Socket,
-  device: mediasoupClient.Device
+  device: mediasoupClient.Device,
+  roomname: string
 ): Promise<Transport> {
-  const routerTransportOptions = await socket.emitWithAck(
-    "serverCreateWebRtcTransport"
+  const routerTransportOptions: TransportOptions = await socket.emitWithAck(
+    "serverCreateWebRtcTransport",
+    roomname
   );
   console.log("r", routerTransportOptions);
   try {
     const transport = device.createSendTransport(routerTransportOptions);
+    console.log("trans-id", transport.id);
 
+    const transportId = transport.id;
     transport.on("connect", async ({ dtlsParameters }, callback, errback) => {
-      const ans = await socket.emitWithAck("transport-connect", dtlsParameters);
+      const ans = await socket.emitWithAck("transport-connect", {
+        dtlsParameters,
+        transportId,
+        roomname,
+      });
       switch (ans) {
         case "connected":
           // console.log("transport connected");
@@ -50,7 +59,11 @@ async function createSendTransport(
 
     transport.on("produce", async (parameters, callback, errback) => {
       console.log("produce event");
-      const id = await socket.emitWithAck("transport-produce", parameters);
+      const id = await socket.emitWithAck("transport-produce", {
+        parameters,
+        transportId,
+        roomname,
+      });
       if (!id) {
         // errback()
         const error = new Error(
@@ -58,6 +71,11 @@ async function createSendTransport(
         );
         console.error("transport produce error");
         errback(error);
+      }
+      if (id == "room doesn't exist" || id == "transport doesn't exist") {
+        console.error(id);
+        errback(id);
+        throw new Error(id);
       }
       console.log("server produced", id);
       callback({ id });
@@ -81,11 +99,13 @@ async function createSendTransport(
 }
 async function createRecieveTransport(
   socket: Socket,
-  device: mediasoupClient.Device
+  device: mediasoupClient.Device,
+  roomname: string,
+  producerid: string
 ): Promise<Transport> {
   const routerTransportOptions = await socket.emitWithAck(
     "serverCreateWebRtcRecieveTransport",
-    device.rtpCapabilities
+    { capabilities: device.rtpCapabilities, roomname, producerid }
   );
   if (routerTransportOptions === "you cannot consume") {
     throw new Error("cannot consume");
@@ -95,13 +115,14 @@ async function createRecieveTransport(
     const transport = device.createRecvTransport(routerTransportOptions);
 
     transport.on("connect", async ({ dtlsParameters }, callback, errback) => {
-      const ans = await socket.emitWithAck(
-        "transport-connect-consumer",
-        dtlsParameters
-      );
+      const ans = await socket.emitWithAck("transport-connect-consumer", {
+        dtlsParameters,
+        roomname,
+        transportId: transport.id,
+      });
       switch (ans) {
         case "connected":
-          // console.log("transport connected");
+          console.log("transport connected");
           callback();
           break;
         default:

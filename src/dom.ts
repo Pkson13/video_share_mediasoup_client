@@ -26,7 +26,7 @@ const createVIdeoElement = (stream: MediaStream, type: videoelement) => {
     local.append(video);
   }
   if (type === "remote") {
-    let remotestream = document.querySelector(`.${type}`);
+    let remotestream = document.querySelector(`.page`);
     if (remotestream) {
       remotestream.append(video);
       video.srcObject = stream;
