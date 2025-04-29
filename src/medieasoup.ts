@@ -36,10 +36,11 @@ async function createSendTransport(
   console.log("r", routerTransportOptions);
   try {
     const transport = device.createSendTransport(routerTransportOptions);
-    console.log("trans-id", transport.id);
+    console.log("producerTransportId", transport.id);
 
     const transportId = transport.id;
     transport.on("connect", async ({ dtlsParameters }, callback, errback) => {
+      console.log("dtlsparams", dtlsParameters);
       const ans = await socket.emitWithAck("transport-connect", {
         dtlsParameters,
         transportId,
@@ -58,7 +59,8 @@ async function createSendTransport(
     });
 
     transport.on("produce", async (parameters, callback, errback) => {
-      console.log("produce event");
+      console.log("producing to server", parameters);
+
       const id = await socket.emitWithAck("transport-produce", {
         parameters,
         transportId,
