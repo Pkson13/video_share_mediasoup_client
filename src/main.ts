@@ -54,6 +54,7 @@ socket.on("newConsumer", async (consumeroptions: ConsumerOptions) => {
     );
   }
   console.log("transport connecting", transport);
+
   consumer = await transport.consume(consumeroptions);
   console.log("consumer", consumer);
   const respone = await socket.emitWithAck("client-consumer-created", {
@@ -69,6 +70,22 @@ socket.on("newConsumer", async (consumeroptions: ConsumerOptions) => {
 });
 
 // socket.emit("serverCreateWebRtcTransport")
+socket.on("new-producer", async (producerid: string) => {
+  if (producer.id == producerid) {
+    console.log("my producer id");
+    return;
+  }
+  console.log("new producer", producerid);
+  producerIds.push(producerid);
+  if (!nameinput) return;
+  const transport = await createRecieveTransport(
+    socket,
+    device,
+    nameinput.value,
+    producerid
+  );
+  recievTransports.push(transport);
+});
 
 callbtn?.addEventListener("click", async () => {
   modal?.classList.remove("show");
@@ -101,8 +118,10 @@ jionbtn?.addEventListener("click", async () => {
   // producerIds = res.producerIds;
   localstream = await gum(device);
   transport = await createSendTransport(socket, device, nameinput.value);
+  // console.log("transport-id", transport.id);
   createVIdeoElement(localstream, "local");
   producer = await produceMedia(transport, localstream);
+  // console.log("producer-id", producer.id);
 
   for (const id of res.producerIds) {
     producerIds.push(id);
